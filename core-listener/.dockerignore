@@ -1,0 +1,10 @@
+# The build sends this folder to the Docker daemon. On Core it also holds the real settings and their backups; none of that may travel with the build
+# (the Dockerfile copies only requirements.txt and app/, but nothing else should be sent either).
+.env
+.env.*
+*.prev
+**/__pycache__
+**/*.pyc
+*.db
+*.db-wal
+*.db-shm

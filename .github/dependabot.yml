@@ -1,0 +1,50 @@
+# Dependabot version updates (free on a private repository). Security ALERTS and security UPDATES are separate switches in the repository's settings. Every update arrives as a pull request that CI must pass before anyone merges it, and the listener's
+# own lock (requirements.txt) is regenerated from requirements.in, never edited by hand.
+version: 2
+updates:
+  # The listener's Python dependencies (requirements.in + the hash-locked requirements.txt)
+  - package-ecosystem: pip
+    directory: /core-listener
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  # The tools CI itself installs
+  - package-ecosystem: pip
+    directory: /ops
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+  # The base image in the Dockerfile (python:3.14-slim, pinned by digest)
+  - package-ecosystem: docker
+    directory: /core-listener
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    # Python 3.15 and newer are fenced off until someone has run the image on them (the 2026-11-04 bump to 3.15 broke the build because the lock then had no
+    # 3.15 wheel for pydantic-core). `versions` is a range, so the digest of the current 3.14-slim still arrives. Move up on purpose: see the comment at the
+    # top of core-listener/Dockerfile for the list of things that change together.
+    ignore:
+      - dependency-name: python
+        versions: [">= 3.15"]
+  # The images in docker-compose.yml (cloudflared and the data-owner helper, both pinned by digest)
+  - package-ecosystem: docker-compose
+    directory: /core-listener
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    # The data-owner helper must stay the SAME image as the Dockerfile (ops/test_container_hardening.py checks it), so it gets the same fence.
+    ignore:
+      - dependency-name: python
+        versions: [">= 3.15"]
+  # The actions CI uses
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+  # The real-Chrome test dependencies (playwright-core)
+  - package-ecosystem: npm
+    directory: /ops/browser_tests
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

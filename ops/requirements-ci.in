@@ -1,0 +1,5 @@
+# The tools CI installs (not the service). The exact versions, with a hash for every file, are in requirements-ci.txt (generated, never edited by hand):
+#   uv pip compile ops/requirements-ci.in --generate-hashes --python-platform x86_64-manylinux_2_28 --python-version 3.12 --no-header -o ops/requirements-ci.txt
+pyyaml
+pip-audit
+bandit

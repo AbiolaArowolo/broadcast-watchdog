@@ -1,0 +1,129 @@
+services:
+  data-owner:
+    image: python:3.14-slim@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f
+    container_name: clarix-watchdog-data-owner
+    user: "0:0"
+    command: ["chown", "-R", "10001:10001", "/data"]
+    volumes:
+      - watchdog-data:/data
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 64m
+    pids_limit: 16
+    restart: "no"
+
+  watchdog-listener:
+    build: .
+    container_name: clarix-watchdog-listener
+    restart: unless-stopped
+    depends_on:
+      data-owner:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 1.0
+    pids_limit: 128
+    ports:
+      - "8420:8420"
+      - "127.0.0.1:8421:8421"
+    environment:
+      WATCHDOG_DB_PATH: /data/watchdog.db
+      WATCHDOG_STAFF_DOOR_PORT: ${WATCHDOG_STAFF_DOOR_PORT:-8421}
+      WATCHDOG_HEARTBEAT_INTERVAL_SECONDS: ${WATCHDOG_HEARTBEAT_INTERVAL_SECONDS:-10}
+      WATCHDOG_MISSED_INTERVALS_BEFORE_ALERT: ${WATCHDOG_MISSED_INTERVALS_BEFORE_ALERT:-3}
+      WATCHDOG_SMTP_HOST: ${WATCHDOG_SMTP_HOST:-}
+      WATCHDOG_SMTP_PORT: ${WATCHDOG_SMTP_PORT:-587}
+      WATCHDOG_SMTP_USER: ${WATCHDOG_SMTP_USER:-}
+      WATCHDOG_SMTP_PASS: ${WATCHDOG_SMTP_PASS:-}
+      WATCHDOG_ALERT_EMAIL_TO: ${WATCHDOG_ALERT_EMAIL_TO:-}
+      WATCHDOG_ALERT_EMAIL_FROM: ${WATCHDOG_ALERT_EMAIL_FROM:-}
+      WATCHDOG_SHARED_TOKEN: ${WATCHDOG_SHARED_TOKEN:-}
+      WATCHDOG_PREVIOUS_SHARED_TOKEN: ${WATCHDOG_PREVIOUS_SHARED_TOKEN:-}
+      WATCHDOG_SENDER_AUTH: ${WATCHDOG_SENDER_AUTH:-both}
+      WATCHDOG_SENDER_KEY_MAIN: ${WATCHDOG_SENDER_KEY_MAIN:-}
+      WATCHDOG_SENDER_KEY_MAIN_PREVIOUS: ${WATCHDOG_SENDER_KEY_MAIN_PREVIOUS:-}
+      WATCHDOG_SENDER_KEY_BACKUP_SERVER: ${WATCHDOG_SENDER_KEY_BACKUP_SERVER:-}
+      WATCHDOG_SENDER_KEY_BACKUP_SERVER_PREVIOUS: ${WATCHDOG_SENDER_KEY_BACKUP_SERVER_PREVIOUS:-}
+      WATCHDOG_SENDER_KEY_SITE_A: ${WATCHDOG_SENDER_KEY_SITE_A:-}
+      WATCHDOG_SENDER_KEY_SITE_A_PREVIOUS: ${WATCHDOG_SENDER_KEY_SITE_A_PREVIOUS:-}
+      WATCHDOG_SENDER_KEY_SITE_B: ${WATCHDOG_SENDER_KEY_SITE_B:-}
+      WATCHDOG_SENDER_KEY_SITE_B_PREVIOUS: ${WATCHDOG_SENDER_KEY_SITE_B_PREVIOUS:-}
+      WATCHDOG_ENABLE_DOCS: ${WATCHDOG_ENABLE_DOCS:-false}
+      WATCHDOG_MAX_INGEST_REQUESTS_PER_MINUTE: ${WATCHDOG_MAX_INGEST_REQUESTS_PER_MINUTE:-600}
+      WATCHDOG_MAX_STREAMS: ${WATCHDOG_MAX_STREAMS:-32}
+      WATCHDOG_MAX_PRIVATE_STREAMS: ${WATCHDOG_MAX_PRIVATE_STREAMS:-16}
+      WATCHDOG_MAX_STREAMS_PER_VISITOR: ${WATCHDOG_MAX_STREAMS_PER_VISITOR:-8}
+      WATCHDOG_MAX_STATUS_PER_MINUTE: ${WATCHDOG_MAX_STATUS_PER_MINUTE:-60}
+      WATCHDOG_STREAM_SEND_TIMEOUT_SECONDS: ${WATCHDOG_STREAM_SEND_TIMEOUT_SECONDS:-30}
+      WATCHDOG_TRUSTED_PROXY_CIDRS: ${WATCHDOG_TRUSTED_PROXY_CIDRS:-172.16.0.0/12,127.0.0.1/32}
+      WATCHDOG_REJECT_PLAIN_HTTP_POSTS: ${WATCHDOG_REJECT_PLAIN_HTTP_POSTS:-false}
+      WATCHDOG_EXPECTED_INSTANCES: '{"MAIN": ["usa", "caribbean"], "BACKUP-SERVER": ["usa", "caribbean"]}'
+      WATCHDOG_WARNING_OVERDUE_SECONDS: ${WATCHDOG_WARNING_OVERDUE_SECONDS:-45}
+      WATCHDOG_CRITICAL_OVERDUE_SECONDS: ${WATCHDOG_CRITICAL_OVERDUE_SECONDS:-60}
+      WATCHDOG_CLEAR_CONFIRM_SECONDS: ${WATCHDOG_CLEAR_CONFIRM_SECONDS:-15}
+      WATCHDOG_ENGINE_STARTUP_GRACE_SECONDS: ${WATCHDOG_ENGINE_STARTUP_GRACE_SECONDS:-30}
+      WATCHDOG_LISTENER_STARTUP_GRACE_SECONDS: ${WATCHDOG_LISTENER_STARTUP_GRACE_SECONDS:-90}
+      WATCHDOG_EMAIL_RECOVERY_NOTICES: ${WATCHDOG_EMAIL_RECOVERY_NOTICES:-false}
+      WATCHDOG_EVENT_RETENTION_DAYS: ${WATCHDOG_EVENT_RETENTION_DAYS:-180}
+      WATCHDOG_DISPLAY_TIMEZONE: ${WATCHDOG_DISPLAY_TIMEZONE:-America/New_York}
+      WATCHDOG_PUSH_URL: ${WATCHDOG_PUSH_URL:-}
+      WATCHDOG_DEADMAN_URL: ${WATCHDOG_DEADMAN_URL:-}
+      WATCHDOG_DEADMAN_INTERVAL_SECONDS: ${WATCHDOG_DEADMAN_INTERVAL_SECONDS:-60}
+      WATCHDOG_CONTROL_KEY: ${WATCHDOG_CONTROL_KEY:-}
+      WATCHDOG_SUPER_EMAIL_TO: ${WATCHDOG_SUPER_EMAIL_TO:-}
+      WATCHDOG_SUPER_PUSH_URL: ${WATCHDOG_SUPER_PUSH_URL:-}
+      WATCHDOG_CONTROL_NOTICE_TO: ${WATCHDOG_CONTROL_NOTICE_TO:-}
+      WATCHDOG_PEER_URL: ${WATCHDOG_PEER_URL:-}
+      WATCHDOG_SUPER_USER: ${WATCHDOG_SUPER_USER:-}
+      WATCHDOG_SUPER_PASSWORD_HASH: ${WATCHDOG_SUPER_PASSWORD_HASH:-}
+      WATCHDOG_MATRIX_HOST: ${WATCHDOG_MATRIX_HOST:-}
+      WATCHDOG_MATRIX_PORT: ${WATCHDOG_MATRIX_PORT:-7000}
+    command: ["python", "-m", "app.serve", "--host", "0.0.0.0", "--port", "8420", "--timeout-graceful-shutdown", "3", "--no-proxy-headers"]
+    stop_grace_period: 8s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8420/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 15s
+    volumes:
+      - watchdog-data:/data
+    networks:
+      - watchdog-net
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
+    container_name: clarix-watchdog-cloudflared
+    restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 192m
+    pids_limit: 256
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${WATCHDOG_TUNNEL_TOKEN}
+    networks:
+      - watchdog-net
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    depends_on:
+      - watchdog-listener
+
+networks:
+  watchdog-net:
+    name: clarix-watchdog-net
+
+volumes:
+  watchdog-data:

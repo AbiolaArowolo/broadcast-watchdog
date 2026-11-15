@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+*.log
+logs/
+.pytest_cache/
+*.db
+*.db-wal
+*.db-shm
+an unpublished operations script.txt
+ops/*_output*.txt
+
+# browser tests: dependencies and run output
+ops/browser_tests/node_modules/
+ops/browser_tests/out*/

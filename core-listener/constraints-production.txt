@@ -1,0 +1,19 @@
+# The versions the listener's lock is held to. Originally the exact versions running in the production container on 2026-10-17 (`pip freeze` inside
+# clarix-watchdog-listener); today it is the file Dependabot edits, and ops/test_container_hardening.py requires every version here to be the version in
+# requirements.txt. A Dependabot bump therefore turns CI red until the lock follows it: run `python ops/lock_requirements.py` (it reads this file) and commit
+# requirements.txt. Delete this file's use (`--upgrade`) to take newer transitive versions on purpose, then copy the new versions back in here.
+#
+# pydantic_core is deliberately NOT listed. pydantic pins the exact core it was built for (pydantic 2.14.1 needs pydantic-core 2.50.1), so a core bumped on its
+# own is a pair that cannot be installed together, and the resolver takes the core that pydantic asks for. (On 2026-11-04 this file said pydantic 2.14.1 with
+# pydantic_core 2.50.2; the lock was never regenerated, so the unsatisfiable pair never reached an image.)
+annotated-types==0.8.0
+anyio==4.16.0
+click==8.5.1
+fastapi==0.162.5
+h11==0.16.0
+idna==3.20
+pydantic==2.14.3
+starlette==1.10.0
+typing-inspection==0.4.5
+typing_extensions==4.16.0
+uvicorn==0.54.0

@@ -1,0 +1,5 @@
+# What the listener needs, nothing else. The exact versions of these two AND of everything they pull in, with a hash for every file, are in
+# requirements.txt (generated, never edited by hand): `python ops/lock_requirements.py`. The image installs with --require-hashes, so a changed or
+# swapped package on PyPI is refused instead of installed.
+fastapi==0.162.5
+uvicorn==0.54.0

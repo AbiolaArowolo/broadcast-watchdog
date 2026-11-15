@@ -1,0 +1,10 @@
+# Linux scripts must keep LF line endings even when checked out on Windows (CRLF breaks bash on Core)
+*.sh text eol=lf
+*.service text eol=lf
+# Files that are built or read on Linux (the container image, the dependency lock, the compose file) must not pick up Windows line endings
+core-listener/Dockerfile text eol=lf
+core-listener/.dockerignore text eol=lf
+core-listener/docker-compose.yml text eol=lf
+core-listener/requirements.in text eol=lf
+core-listener/requirements.txt text eol=lf
+core-listener/constraints-production.txt text eol=lf

@@ -1,0 +1,9 @@
+# gitleaks configuration for the secrets-scan job (.github/workflows/ci.yml). The default rules stay on; the only exception is one placeholder.
+title = "Clarix Broadcast Watchdog"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "The fake tunnel token in two test fixtures (ops/test_rotation_env.py, ops/test_rotate_remote.py): the base64 of {\"a\":\"abc\"}, not a credential. Deliberately the exact string, not a path, so a real secret in those files would still be found."
+regexes = ['''^eyJhIjoiYWJjIn0=$''']

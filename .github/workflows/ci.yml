@@ -1,0 +1,164 @@
+# Continuous checks for the Clarix Broadcast Watchdog.
+#
+# What runs on every pull request and on every push to main (pushes to other branches are covered by the pull request). A run can also be started by hand from the Actions tab.
+#
+#   unit-tests        every unit and live-HTTP test that needs no special machine (a throwaway local listener, a fake iptables, bash)
+#   edge-senders      the PowerShell sender tests, on Windows (they need PowerShell 5)
+#   container         builds the image and runs the real compose file on Docker, from a root-owned volume (see ops/test_container_live.py)
+#   dependency-audit  pip-audit over the exact hash-locked set the container installs
+#   static-analysis   bandit over the service code (medium and above fail the build)
+#   secrets-scan      gitleaks over the whole git history
+#
+# Rules this file keeps (ops/test_ci_workflow.py enforces them): a read-only token, no secrets, no stored credentials in the checkout, every action
+# pinned to an exact version, every package installed from a hash-locked file, every image pinned by digest, a time limit on every job, and no test file
+# in ops/ that CI forgets to run. The real-Chrome dashboard suites (ops/browser_tests) are run by hand, one at a time, as their README says.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      - name: Install the listener's dependencies and the CI tools (every package from a hash-locked file)
+        run: |
+          python -m pip install --require-hashes --no-deps -r core-listener/requirements.txt
+          python -m pip install --require-hashes --no-deps -r ops/requirements-ci.txt
+      - name: Listener unit tests
+        run: python ops/test_listener_units.py
+      - name: Standby decision logic and the dashboard strip
+        if: ${{ !cancelled() }}
+        run: |
+          python ops/test_standby_logic.py
+          python ops/test_standby_strip.py
+      - name: Control phase (switch-off, preferred node, fallback, the control door)
+        if: ${{ !cancelled() }}
+        run: |
+          python ops/test_control_logic.py
+          python ops/test_control_access.py
+          python ops/test_control_wiring.py
+          python ops/test_control_login.py
+      - name: Staff section (accounts, shifts, failures, assignment, the row log)
+        if: ${{ !cancelled() }}
+        run: |
+          python ops/test_staff_logic.py
+          python ops/test_staff_wiring.py
+          python ops/test_staff_pages.py
+          python ops/test_staff_door.py
+          python ops/test_staff_critical.py
+      - name: Real HTTP against throwaway listeners
+        if: ${{ !cancelled() }}
+        run: |
+          python ops/test_guard_live.py
+          python ops/test_hostile_input_live.py
+          python ops/test_control_live.py
+      - name: AV matrix switching (the protocol, the switch rules, who may press, the card, the dashboard tiles)
+        if: ${{ !cancelled() }}
+        run: |
+          python ops/test_matrix_logic.py
+          python ops/test_matrix_wiring.py
+          python ops/test_matrix_panel.py
+          python ops/test_matrix_tiles.py
+          python ops/test_matrix_live.py
+      - name: Site C feed monitor (the rules that judge the encoder's two streams)
+        if: ${{ !cancelled() }}
+        run: |
+          python ops/test_site_c_feed_logic.py
+          python ops/test_site_c_feed_wiring.py
+          python ops/test_site_c_feed_panel.py
+      - name: This workflow's own rules
+        if: ${{ !cancelled() }}
+        run: python ops/test_ci_workflow.py
+
+  edge-senders:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: PowerShell sender tests
+        run: python ops/test_edge_senders.py
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      - name: Install the CI tools
+        run: python -m pip install --require-hashes --no-deps -r ops/requirements-ci.txt
+      - name: Dockerfile, compose file and dependency lock
+        run: python ops/test_container_hardening.py
+      - name: Build the image and run the real compose file
+        if: ${{ !cancelled() }}
+        run: python ops/test_container_live.py
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      - name: Install the CI tools
+        run: python -m pip install --require-hashes --no-deps -r ops/requirements-ci.txt
+      # No exceptions: the lock (Starlette 1.8.0, FastAPI 0.143.3, Uvicorn 0.54.0) has no known vulnerability. Anything pip-audit reports from now on fails the build.
+      - name: pip-audit over the exact set the container installs
+        run: pip-audit -r core-listener/requirements.txt --no-deps --disable-pip
+
+  static-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      - name: Install the CI tools
+        run: python -m pip install --require-hashes --no-deps -r ops/requirements-ci.txt
+      - name: bandit over the service code (medium and above fail)
+        run: bandit -r core-listener/app -ll
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: gitleaks over the whole history (a found secret is redacted in the log)
+        run: >
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          detect --source /repo --redact --verbose --no-banner --log-opts="--all"
