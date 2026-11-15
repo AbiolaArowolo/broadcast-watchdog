@@ -60,4 +60,4 @@ The workflow in `.github/workflows/ci.yml` runs the whole set on every pull requ
 
 ## Status
 
-Provided as a reference and portfolio piece. No licence has been chosen yet, so all rights are reserved until one is added.
+Provided as a reference and portfolio piece. Licensed under the Apache License, Version 2.0: see [LICENSE](LICENSE) and [NOTICE](NOTICE).
