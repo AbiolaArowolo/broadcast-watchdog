@@ -3,5 +3,5 @@
   "private": true,
   "type": "module",
   "description": "Real-Chrome tests of the Watchdog dashboard (run by hand, see README.md)",
-  "dependencies": { "playwright-core": "1.65.0" }
+  "dependencies": { "playwright-core": "1.65.1" }
 }
